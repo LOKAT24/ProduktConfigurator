@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zaawansowany Konfigurator Produktów z Zależnościami</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .param-block, .dependency-rule, .state-input-group {
+            transition: all 0.3s ease;
+        }
+        .remove-btn {
+            flex-shrink: 0;
+            transition: background-color 0.2s;
+        }
+        select {
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23d1d5db%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E');
+            background-repeat: no-repeat;
+            background-position: right 0.7rem center;
+            background-size: 0.65rem;
+            padding-right: 2.5rem;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-300 p-4 sm:p-6 md:p-8">
+
+    <div class="max-w-7xl mx-auto">
+        <header class="mb-8">
+            <h1 class="text-3xl font-bold text-gray-100">Zaawansowany Konfigurator Produktów</h1>
+            <p class="mt-2 text-gray-400">Dodawaj parametry, stany i definiuj między nimi zależności.</p>
+        </header>
+
+        <!-- Panel Sterowania -->
+        <div class="bg-gray-800 border border-gray-700 p-6 rounded-xl shadow-md mb-8">
+            <div class="flex flex-wrap gap-4 items-center justify-between border-b border-gray-700 pb-4 mb-6">
+                 <h2 class="text-xl font-semibold text-white">Panel Sterowania</h2>
+                 <div class="flex flex-wrap gap-3">
+                    <button id="summaryBtn" class="bg-yellow-600 text-white px-4 py-2 rounded-md hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500">Generuj Podsumowanie</button>
+                    <button id="saveBtn" class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">Zapisz Konfigurację</button>
+                    <label for="loadInput" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">Wczytaj Konfigurację</label>
+                    <input type="file" id="loadInput" class="hidden" accept=".json">
+                 </div>
+            </div>
+            
+            <div class="grid md:grid-cols-3 gap-6 mb-6">
+                <div class="md:col-span-2">
+                    <label for="baseName" class="block text-sm font-medium text-gray-400 mb-1">Nazwa Bazowa Produktu</label>
+                    <input type="text" id="baseName" value="Produkt" class="w-full p-2 bg-gray-700 border border-gray-600 text-gray-200 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                </div>
+                <div>
+                    <label for="nameSeparator" class="block text-sm font-medium text-gray-400 mb-1">Separator w nazwie</label>
+                    <input type="text" id="nameSeparator" value="-" class="w-full p-2 bg-gray-700 border border-gray-600 text-gray-200 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                </div>
+            </div>
+
+            <div id="paramsContainer" class="space-y-6"></div>
+
+            <div class="mt-6 border-t border-gray-700 pt-6">
+                <button id="addParamBtn" class="text-sm text-indigo-400 hover:text-indigo-300 font-medium">+ Dodaj nowy parametr</button>
+            </div>
+        </div>
+        
+        <!-- Zarządzanie Zależnościami -->
+        <div class="bg-gray-800 border border-gray-700 p-6 rounded-xl shadow-md mb-8">
+            <div class="flex flex-wrap gap-4 items-center justify-between border-b border-gray-700 pb-4 mb-6">
+                <h2 class="text-xl font-semibold text-white">Zarządzanie Zależnościami</h2>
+                <button id="addDependencyBtn" class="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500">Dodaj Regułę</button>
+            </div>
+            <div id="dependenciesContainer" class="space-y-4"></div>
+        </div>
+
+        <!-- Tabela Wynikowa -->
+        <div class="bg-gray-800 border border-gray-700 rounded-xl shadow-md overflow-hidden">
+             <div class="p-6">
+                <h2 class="text-xl font-semibold text-white mb-2">Wygenerowana Lista Produktów</h2>
+                <p class="text-sm text-gray-400">Znaleziono <span id="productCount" class="font-bold text-white">0</span> ważnych kombinacji.</p>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-700">
+                    <thead id="productTableHead" class="bg-gray-700/50"></thead>
+                    <tbody id="productTableBody" class="divide-y divide-gray-700"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <!-- TEMPLATES -->
+    <template id="paramTemplate">
+        <div class="border border-gray-700 p-4 rounded-lg bg-gray-900/50 param-block" data-id="">
+            <div class="flex justify-between items-start mb-3">
+                <div>
+                    <label class="block text-sm font-medium text-gray-400 mb-1">Nazwa Parametru</label>
+                    <input type="text" value="Nowy Parametr" class="param-name w-full p-2 bg-gray-700 border border-gray-600 text-gray-200 rounded-md shadow-sm">
+                </div>
+                <button class="remove-param-btn text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded-full p-1.5 remove-btn">
+                    <svg class="h-5 w-5 pointer-events-none" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" /></svg>
+                </button>
+            </div>
+            <div class="states-container space-y-2"></div>
+            <button class="add-state-btn mt-3 text-sm text-indigo-400 hover:text-indigo-300 font-medium">+ Dodaj nowy stan</button>
+        </div>
+    </template>
+
+    <template id="stateTemplate">
+        <div class="state-input-group flex items-center gap-2" data-id="">
+            <input type="text" value="Nowy Stan" class="param-state flex-grow p-2 bg-gray-700 border border-gray-600 text-gray-200 rounded-md shadow-sm">
+            <button class="remove-state-btn text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded-full p-1.5 remove-btn">
+                 <svg class="h-5 w-5 pointer-events-none" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" /></svg>
+            </button>
+        </div>
+    </template>
+
+    <template id="dependencyTemplate">
+        <div class="dependency-rule border border-gray-700 p-4 rounded-lg bg-purple-900/20">
+            <div class="grid grid-cols-1 md:grid-cols-11 gap-4 items-center">
+                <div class="md:col-span-5">
+                    <label class="block text-xs font-bold text-gray-400 mb-1">JEŻELI:</label>
+                    <div class="flex gap-2">
+                        <select class="if-param-select w-full p-2 bg-gray-700 border border-gray-600 text-gray-200 rounded-md shadow-sm"></select>
+                        <select class="if-state-select w-full p-2 bg-gray-700 border border-gray-600 text-gray-200 rounded-md shadow-sm"></select>
+                    </div>
+                </div>
+                <div class="text-center font-bold text-purple-400 md:col-span-1">TO WYKLUCZ</div>
+                <div class="then-exclusions-container md:col-span-5 space-y-2">
+                    <!-- Exclusion blocks will be added here -->
+                </div>
+                 <button class="remove-dependency-btn text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded-full p-1.5 remove-btn md:col-span-11 md:col-start-11 md:row-start-1 md:self-start md:justify-self-end">
+                    <svg class="h-5 w-5 pointer-events-none" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" /></svg>
+                </button>
+            </div>
+            <div class="mt-3">
+                <button class="add-exclusion-btn text-sm text-purple-400 hover:text-purple-300 font-medium">+ Dodaj wykluczenie</button>
+            </div>
+        </div>
+    </template>
+    
+    <template id="exclusionTemplate">
+        <div class="then-exclusion-item flex gap-2 items-center">
+            <select class="then-param-select w-full p-2 bg-gray-700 border border-gray-600 text-gray-200 rounded-md shadow-sm"></select>
+            <select class="then-state-select w-full p-2 bg-gray-700 border border-gray-600 text-gray-200 rounded-md shadow-sm"></select>
+            <button class="remove-exclusion-btn text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded-full p-1.5 remove-btn">
+                <svg class="h-5 w-5 pointer-events-none" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" /></svg>
+            </button>
+        </div>
+    </template>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const paramsContainer = document.getElementById('paramsContainer');
+        const dependenciesContainer = document.getElementById('dependenciesContainer');
+        const addParamBtn = document.getElementById('addParamBtn');
+        const addDependencyBtn = document.getElementById('addDependencyBtn');
+        const baseNameInput = document.getElementById('baseName');
+        const nameSeparatorInput = document.getElementById('nameSeparator');
+        const saveBtn = document.getElementById('saveBtn');
+        const loadInput = document.getElementById('loadInput');
+        const summaryBtn = document.getElementById('summaryBtn');
+
+        function updateAll() {
+            const config = readConfigFromDOM();
+            updateAllDependencyDropdowns(config);
+            generateTable(config);
+        }
+
+        function readConfigFromDOM() {
+            const paramBlocks = paramsContainer.querySelectorAll('.param-block');
+            const params = Array.from(paramBlocks).map(block => ({
+                id: block.dataset.id,
+                name: block.querySelector('.param-name').value,
+                states: Array.from(block.querySelectorAll('.state-input-group')).map(stateEl => ({
+                    id: stateEl.dataset.id,
+                    value: stateEl.querySelector('.param-state').value
+                })).filter(s => s.value.trim() !== '')
+            }));
+            
+            const dependencyRules = dependenciesContainer.querySelectorAll('.dependency-rule');
+            const dependencies = Array.from(dependencyRules).map(rule => {
+                const ifStateId = rule.querySelector('.if-state-select').value;
+                const thenExclusions = rule.querySelectorAll('.then-exclusion-item');
+                const thenStateIds = Array.from(thenExclusions)
+                    .map(ex => ex.querySelector('.then-state-select').value)
+                    .filter(id => id);
+                return { ifStateId, thenStateIds };
+            }).filter(d => d.ifStateId && d.thenStateIds.length > 0);
+
+            return {
+                baseName: baseNameInput.value,
+                separator: nameSeparatorInput.value || '-',
+                params: params.filter(p => p.states.length > 0),
+                dependencies
+            };
+        }
+
+        function getValidCombinations(config) {
+            let validCombinations = [];
+            if (config.params.length === 0) return validCombinations;
+
+            function generateCombinations(paramIndex, currentCombo) {
+                if (paramIndex === config.params.length) {
+                    if (isCombinationValid(currentCombo, config.dependencies)) {
+                        validCombinations.push([...currentCombo]);
+                    }
+                    return;
+                }
+                const param = config.params[paramIndex];
+                for (const state of param.states) {
+                    currentCombo.push(state.id);
+                    generateCombinations(paramIndex + 1, currentCombo);
+                    currentCombo.pop();
+                }
+            }
+            
+            function isCombinationValid(combo, dependencies) {
+                const comboSet = new Set(combo);
+                for (const dep of dependencies) {
+                    if (comboSet.has(dep.ifStateId)) {
+                        // If the condition is met, check if any of the exclusions are present
+                        if (dep.thenStateIds.some(thenId => comboSet.has(thenId))) {
+                            return false; // Invalid combination
+                        }
+                    }
+                }
+                return true; // Valid combination
+            }
+
+            generateCombinations(0, []);
+            return validCombinations;
+        }
+
+        function generateTable(config) {
+            const tableHead = document.getElementById('productTableHead');
+            const tableBody = document.getElementById('productTableBody');
+            const productCountEl = document.getElementById('productCount');
+            tableHead.innerHTML = '';
+            tableBody.innerHTML = '';
+
+            if (config.params.length === 0) {
+                productCountEl.textContent = '0';
+                return;
+            }
+
+            const headerRow = document.createElement('tr');
+            headerRow.innerHTML = '<th class="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Lp.</th>';
+            config.params.forEach(param => {
+                const th = document.createElement('th');
+                th.className = "px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider";
+                th.textContent = param.name;
+                headerRow.appendChild(th);
+            });
+            headerRow.insertAdjacentHTML('beforeend', `<th class="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Finalna Nazwa Produktu</th>`);
+            tableHead.appendChild(headerRow);
+
+            const allStatesMap = new Map();
+            config.params.forEach(p => p.states.forEach(s => allStatesMap.set(s.id, s.value)));
+            
+            const validCombinations = getValidCombinations(config);
+            productCountEl.textContent = validCombinations.length;
+
+            validCombinations.forEach((comboIds, index) => {
+                const row = document.createElement('tr');
+                row.className = "hover:bg-gray-700/50";
+                
+                const lpCell = document.createElement('td');
+                lpCell.className = "px-6 py-4 whitespace-nowrap text-sm text-gray-400";
+                lpCell.textContent = index + 1;
+                row.appendChild(lpCell);
+
+                const comboValues = comboIds.map(id => allStatesMap.get(id));
+                comboValues.forEach(val => {
+                    const cell = document.createElement('td');
+                    cell.className = "px-6 py-4 whitespace-nowrap text-sm text-gray-400";
+                    cell.textContent = val;
+                    row.appendChild(cell);
+                });
+
+                const nameCell = document.createElement('td');
+                nameCell.className = "px-6 py-4 whitespace-nowrap text-sm font-medium text-white";
+                nameCell.textContent = `${config.baseName}${config.separator}${comboValues.join(config.separator)}`;
+                row.appendChild(nameCell);
+                tableBody.appendChild(row);
+            });
+        }
+
+        function createParamBlock(id = crypto.randomUUID(), name = 'Nowy Parametr', states = [{id: crypto.randomUUID(), value: 'Stan A'}, {id: crypto.randomUUID(), value: 'Stan B'}]) {
+            const clone = document.getElementById('paramTemplate').content.cloneNode(true);
+            const block = clone.querySelector('.param-block');
+            block.dataset.id = id;
+            block.querySelector('.param-name').value = name;
+            const statesContainer = block.querySelector('.states-container');
+            states.forEach(state => statesContainer.appendChild(createStateInput(state.id, state.value)));
+            paramsContainer.appendChild(block);
+        }
+        
+        function createStateInput(id = crypto.randomUUID(), value = 'Nowy Stan') {
+            const clone = document.getElementById('stateTemplate').content.cloneNode(true);
+            const group = clone.querySelector('.state-input-group');
+            group.dataset.id = id;
+            group.querySelector('.param-state').value = value;
+            return clone;
+        }
+
+        function createExclusionBlock(container, thenStateId = null) {
+            const clone = document.getElementById('exclusionTemplate').content.cloneNode(true);
+            const exclusionEl = clone.querySelector('.then-exclusion-item');
+            container.appendChild(exclusionEl);
+            
+            const config = readConfigFromDOM();
+            const paramSelect = exclusionEl.querySelector('.then-param-select');
+            const stateSelect = exclusionEl.querySelector('.then-state-select');
+
+            populateParamSelect(paramSelect, config.params, null);
+
+            if (thenStateId) {
+                const parentParam = config.params.find(p => p.states.some(s => s.id === thenStateId));
+                if (parentParam) {
+                    paramSelect.value = parentParam.id;
+                    populateStateSelect(paramSelect, stateSelect, config.params, thenStateId);
+                }
+            }
+        }
+
+        function createDependencyRule(ifStateId = null, thenStateIds = [null]) {
+            const clone = document.getElementById('dependencyTemplate').content.cloneNode(true);
+            const ruleEl = clone.querySelector('.dependency-rule');
+            dependenciesContainer.appendChild(ruleEl);
+            
+            const config = readConfigFromDOM();
+            const ifParamSelect = ruleEl.querySelector('.if-param-select');
+            const ifStateSelect = ruleEl.querySelector('.if-state-select');
+            const exclusionsContainer = ruleEl.querySelector('.then-exclusions-container');
+
+            populateParamSelect(ifParamSelect, config.params, null);
+
+            if (ifStateId) {
+                const parentParam = config.params.find(p => p.states.some(s => s.id === ifStateId));
+                if (parentParam) {
+                    ifParamSelect.value = parentParam.id;
+                    populateStateSelect(ifParamSelect, ifStateSelect, config.params, ifStateId);
+                }
+            }
+
+            thenStateIds.forEach(id => createExclusionBlock(exclusionsContainer, id));
+        }
+
+        function updateAllDependencyDropdowns(config) {
+            const rules = dependenciesContainer.querySelectorAll('.dependency-rule');
+            rules.forEach(rule => {
+                const ifParamSelect = rule.querySelector('.if-param-select');
+                const ifStateSelect = rule.querySelector('.if-state-select');
+                
+                const selectedIfParam = ifParamSelect.value;
+                const selectedIfState = ifStateSelect.value;
+
+                populateParamSelect(ifParamSelect, config.params, selectedIfParam);
+                populateStateSelect(ifParamSelect, ifStateSelect, config.params, selectedIfState);
+
+                const exclusionItems = rule.querySelectorAll('.then-exclusion-item');
+                exclusionItems.forEach(item => {
+                    const thenParamSelect = item.querySelector('.then-param-select');
+                    const thenStateSelect = item.querySelector('.then-state-select');
+                    const selectedThenParam = thenParamSelect.value;
+                    const selectedThenState = thenStateSelect.value;
+                    populateParamSelect(thenParamSelect, config.params, selectedThenParam);
+                    populateStateSelect(thenParamSelect, thenStateSelect, config.params, selectedThenState);
+                });
+            });
+        }
+
+        function populateParamSelect(selectEl, params, selectedId) {
+            selectEl.innerHTML = '<option value="">Wybierz parametr...</option>';
+            params.forEach(p => {
+                selectEl.insertAdjacentHTML('beforeend', `<option value="${p.id}">${p.name}</option>`);
+            });
+            if (selectedId) selectEl.value = selectedId;
+        }
+
+        function populateStateSelect(paramSelect, stateSelect, params, selectedId) {
+            const paramId = paramSelect.value;
+            const param = params.find(p => p.id === paramId);
+            stateSelect.innerHTML = '<option value="">Wybierz stan...</option>';
+            if (param) {
+                param.states.forEach(s => {
+                    stateSelect.insertAdjacentHTML('beforeend', `<option value="${s.id}">${s.value}</option>`);
+                });
+            }
+            if (selectedId) stateSelect.value = selectedId;
+        }
+
+        function generateSummaryPage() {
+            const config = readConfigFromDOM();
+            
+            let paramsHtml = '';
+            config.params.forEach(p => {
+                const states = p.states.map(s => `<span class="state-tile">${s.value}</span>`).join('');
+                paramsHtml += `<div class="param-summary-item"><strong>${p.name}:</strong><div class="tiles-container">${states}</div></div>`;
+            });
+
+            let dependenciesHtml = '';
+            const allStatesMap = new Map();
+            config.params.forEach(p => p.states.forEach(s => allStatesMap.set(s.id, {value: s.value, parent: p})));
+            if (config.dependencies.length > 0) {
+                config.dependencies.forEach(dep => {
+                    const ifState = allStatesMap.get(dep.ifStateId);
+                    if (ifState) {
+                        const thenStates = dep.thenStateIds.map(id => allStatesMap.get(id)).filter(Boolean);
+                        const thenHtml = thenStates.map(ts => `<li>dla <strong>${ts.parent.name}</strong> wyklucz stan <strong>${ts.value}</strong></li>`).join('');
+                        dependenciesHtml += `<div class="dependency-summary-item">Jeżeli <strong>${ifState.parent.name}</strong> to <strong>${ifState.value}</strong>, to: <ul class="list-disc pl-5 mt-1">${thenHtml}</ul></div>`;
+                    }
+                });
+            } else {
+                dependenciesHtml = `<p class="text-gray-500">Brak zdefiniowanych reguł.</p>`;
+            }
+
+            let productsTableHtml = '';
+            const validCombinations = getValidCombinations(config);
+            if (validCombinations.length > 0) {
+                productsTableHtml += `<table>
+                    <thead>
+                        <tr>
+                            <th>Lp.</th>`;
+                config.params.forEach(p => {
+                    productsTableHtml += `<th>${p.name}</th>`;
+                });
+                productsTableHtml += `<th>Finalna Nazwa Produktu</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+                
+                validCombinations.forEach((comboIds, index) => {
+                    const comboValues = comboIds.map(id => allStatesMap.get(id).value);
+                    const productName = `${config.baseName}${config.separator}${comboValues.join(config.separator)}`;
+                    productsTableHtml += `<tr>
+                        <td>${index + 1}</td>`;
+                    comboValues.forEach(val => {
+                        productsTableHtml += `<td>${val}</td>`;
+                    });
+                    productsTableHtml += `<td>${productName}</td>
+                    </tr>`;
+                });
+                productsTableHtml += `</tbody></table>`;
+            } else {
+                productsTableHtml = `<p class="text-gray-500">Brak prawidłowych kombinacji do wyświetlenia.</p>`;
+            }
+
+            const summaryPageHtml = `
+                <!DOCTYPE html>
+                <html lang="pl">
+                <head>
+                    <meta charset="UTF-8">
+                    <title>Podsumowanie Konfiguracji Produktów</title>
+                    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"><\/script>
+                    <style>
+                        body { font-family: 'Inter', sans-serif; font-size: 12px; }
+                        .container { max-width: 1280px; margin: auto; padding: 1rem; }
+                        .section { border: 1px solid #e5e7eb; padding: 1rem; border-radius: 0.5rem; }
+                        .space-y-2 > * + * { margin-top: 0.5rem; }
+                        .space-y-4 > * + * { margin-top: 1rem; }
+                        h1 { font-size: 1.5rem; font-weight: bold; margin-bottom: 1rem; }
+                        h2 { font-size: 1.125rem; font-weight: 600; margin-bottom: 0.75rem; }
+                        table { width: 100%; border-collapse: collapse; }
+                        th, td { padding: 0.25rem 0.5rem; border: 1px solid #e5e7eb; text-align: left; }
+                        thead { background-color: #f3f4f6; }
+                        .no-print { display: block; }
+                        .param-summary-item { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+                        .tiles-container { display: flex; flex-wrap: wrap; gap: 0.25rem; }
+                        .state-tile { background-color: #e5e7eb; color: #1f2937; padding: 0.125rem 0.5rem; border-radius: 0.25rem; font-size: 0.75rem; }
+                        .dependency-summary-item { background-color: #f3f4f6; padding: 0.5rem; border-radius: 0.375rem; font-size: 0.875rem; }
+                        @media screen {
+                            body { background-color: #111827; color: #d1d5db; }
+                            .section { border-color: #374151; background-color: #1f2937; }
+                            h1, h2 { color: #f9fafb; }
+                            .state-tile { background-color: #4b5563; color: #d1d5db; }
+                            .dependency-summary-item { background-color: #374151; }
+                            thead { background-color: #374151; }
+                            th, td { border-color: #4b5563; }
+                        }
+                        @media print {
+                            .no-print { display: none; }
+                            body { font-size: 10px; color: #111827; background-color: #ffffff; }
+                            .section { border-color: #d1d5db; background-color: #ffffff; margin-bottom: 0.5rem !important; padding: 0.5rem; }
+                            .space-y-4 > * + * { margin-top: 0.5rem; }
+                            h1, h2 { margin-bottom: 0.5rem; }
+                            .state-tile { background-color: #e5e7eb !important; color: #1f2937 !important; }
+                            .dependency-summary-item { background-color: #f3f4f6 !important; }
+                            thead { background-color: #f3f4f6 !important; }
+                            th, td { border-color: #d1d5db !important; }
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="container">
+                        <div class="no-print" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                            <h1>Podsumowanie Konfiguracji</h1>
+                            <div style="display: flex; gap: 0.5rem;">
+                                <button onclick="generateExcel()" style="background-color: #16a34a; color: white; padding: 0.5rem 1rem; border-radius: 0.375rem; border: none; cursor: pointer;">Eksportuj do Excela</button>
+                                <button onclick="window.print()" style="background-color: #2563eb; color: white; padding: 0.5rem 1rem; border-radius: 0.375rem; border: none; cursor: pointer;">Drukuj</button>
+                            </div>
+                        </div>
+                        <div class="space-y-4">
+                            <div class="section">
+                                <h2>Podsumowanie Parametrów</h2>
+                                <div class="space-y-2">${paramsHtml}</div>
+                            </div>
+                            <div class="section">
+                                <h2>Zdefiniowane Reguły</h2>
+                                <div class="space-y-2">${dependenciesHtml}</div>
+                            </div>
+                            <div class="section">
+                                <h2>Lista Produktów (${validCombinations.length} kombinacji)</h2>
+                                <div>${productsTableHtml}</div>
+                            </div>
+                        </div>
+                    </div>
+                    <script>
+                        const config = ${JSON.stringify(config)};
+                        const allStatesMap = new Map();
+                        config.params.forEach(p => p.states.forEach(s => allStatesMap.set(s.id, {value: s.value, parent: p})));
+
+                        function getValidCombinations(config) {
+                            let validCombinations = [];
+                            if (config.params.length === 0) return validCombinations;
+                            function generateCombinations(paramIndex, currentCombo) {
+                                if (paramIndex === config.params.length) {
+                                    if (isCombinationValid(currentCombo, config.dependencies)) {
+                                        validCombinations.push([...currentCombo]);
+                                    }
+                                    return;
+                                }
+                                const param = config.params[paramIndex];
+                                for (const state of param.states) {
+                                    currentCombo.push(state.id);
+                                    generateCombinations(paramIndex + 1, currentCombo);
+                                    currentCombo.pop();
+                                }
+                            }
+                            function isCombinationValid(combo, dependencies) {
+                                const comboSet = new Set(combo);
+                                for (const dep of dependencies) {
+                                    if (comboSet.has(dep.ifStateId)) {
+                                        if (dep.thenStateIds.some(thenId => comboSet.has(thenId))) {
+                                            return false;
+                                        }
+                                    }
+                                }
+                                return true;
+                            }
+                            generateCombinations(0, []);
+                            return validCombinations;
+                        }
+
+                        function generateExcel() {
+                            const paramsData = [['Parametr', 'Stany']];
+                            config.params.forEach(p => {
+                                paramsData.push([p.name, p.states.map(s => s.value).join(', ')]);
+                            });
+                            const wsParams = XLSX.utils.aoa_to_sheet(paramsData);
+
+                            const rulesData = [['Warunek (Parametr)', 'Warunek (Stan)', 'Wykluczenie (Parametr)', 'Wykluczenie (Stan)']];
+                             if (config.dependencies.length > 0) {
+                                config.dependencies.forEach(dep => {
+                                    const ifState = allStatesMap.get(dep.ifStateId);
+                                    if (ifState) {
+                                        dep.thenStateIds.forEach(thenId => {
+                                            const thenState = allStatesMap.get(thenId);
+                                            if(thenState) {
+                                                rulesData.push([ifState.parent.name, ifState.value, thenState.parent.name, thenState.value]);
+                                            }
+                                        });
+                                    }
+                                });
+                            }
+                            const wsRules = XLSX.utils.aoa_to_sheet(rulesData);
+
+                            const productsData = [];
+                            const headers = ['Lp.', ...config.params.map(p => p.name), 'Finalna Nazwa Produktu'];
+                            productsData.push(headers);
+                            const validCombinations = getValidCombinations(config);
+                            validCombinations.forEach((comboIds, index) => {
+                                const comboValues = comboIds.map(id => allStatesMap.get(id).value);
+                                const productName = \`\${config.baseName}\${config.separator}\${comboValues.join(config.separator)}\`;
+                                productsData.push([index + 1, ...comboValues, productName]);
+                            });
+                            const wsProducts = XLSX.utils.aoa_to_sheet(productsData);
+
+                            const wb = XLSX.utils.book_new();
+                            XLSX.utils.book_append_sheet(wb, wsParams, 'Podsumowanie Parametrów');
+                            XLSX.utils.book_append_sheet(wb, wsRules, 'Reguły Zależności');
+                            XLSX.utils.book_append_sheet(wb, wsProducts, 'Lista Produktów');
+                            XLSX.writeFile(wb, 'konfiguracja_produktow.xlsx');
+                        }
+                    <\/script>
+                </body>
+                </html>
+            `;
+
+            const summaryWindow = window.open('', '_blank');
+            summaryWindow.document.write(summaryPageHtml);
+            summaryWindow.document.close();
+        }
+
+        addParamBtn.addEventListener('click', () => { createParamBlock(); updateAll(); });
+        addDependencyBtn.addEventListener('click', () => { createDependencyRule(); });
+        summaryBtn.addEventListener('click', generateSummaryPage);
+
+        document.body.addEventListener('click', (e) => {
+            if (e.target.closest('.remove-param-btn')) { e.target.closest('.param-block').remove(); updateAll(); }
+            if (e.target.closest('.add-state-btn')) { e.target.closest('.param-block').querySelector('.states-container').appendChild(createStateInput()); updateAll(); }
+            if (e.target.closest('.remove-state-btn')) { e.target.closest('.state-input-group').remove(); updateAll(); }
+            if (e.target.closest('.remove-dependency-btn')) { e.target.closest('.dependency-rule').remove(); updateAll(); }
+            if (e.target.closest('.add-exclusion-btn')) {
+                const container = e.target.closest('.dependency-rule').querySelector('.then-exclusions-container');
+                createExclusionBlock(container);
+                updateAll();
+            }
+            if (e.target.closest('.remove-exclusion-btn')) {
+                e.target.closest('.then-exclusion-item').remove();
+                updateAll();
+            }
+        });
+        
+        document.body.addEventListener('input', (e) => { if(e.target.matches('input[type="text"]')) { updateAll(); } });
+        
+        document.body.addEventListener('change', (e) => {
+            if (e.target.matches('select')) {
+                if (e.target.matches('.if-param-select')) {
+                    // This is the condition parameter
+                    const rule = e.target.closest('.dependency-rule');
+                    const stateSelect = rule.querySelector('.if-state-select');
+                    populateStateSelect(e.target, stateSelect, readConfigFromDOM().params, null);
+                } else if (e.target.matches('.then-param-select')) {
+                    // This is a parameter within an exclusion
+                    const exclusionItem = e.target.closest('.then-exclusion-item');
+                    const stateSelect = exclusionItem.querySelector('.then-state-select');
+                    populateStateSelect(e.target, stateSelect, readConfigFromDOM().params, null);
+                }
+                // After the immediate UI update for the changed select, run a full update
+                updateAll();
+            }
+        });
+
+        saveBtn.addEventListener('click', () => {
+            const config = readConfigFromDOM();
+            const blob = new Blob([JSON.stringify(config, null, 2)], {type: "application/json"});
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'konfiguracja.json';
+            a.click();
+            URL.revokeObjectURL(a.href);
+            a.remove();
+        });
+
+        loadInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                try {
+                    const config = JSON.parse(event.target.result);
+                    buildDOMFromConfig(config);
+                    updateAll();
+                } catch (err) { alert('Błąd: Nieprawidłowy format pliku JSON.'); console.error(err); }
+            };
+            reader.readAsText(file);
+            e.target.value = '';
+        });
+
+        function buildDOMFromConfig(config) {
+            baseNameInput.value = config.baseName || 'Produkt';
+            nameSeparatorInput.value = config.separator || '-';
+            paramsContainer.innerHTML = '';
+            dependenciesContainer.innerHTML = '';
+            
+            if (config.params) config.params.forEach(p => createParamBlock(p.id, p.name, p.states));
+            if (config.dependencies) config.dependencies.forEach(d => createDependencyRule(d.ifStateId, d.thenStateIds));
+        }
+
+        function initialize() {
+            const initialConfig = {
+                baseName: "Produkt",
+                separator: "-",
+                params: [
+                    { id: crypto.randomUUID(), name: "Kolor", states: [{id: crypto.randomUUID(), value: "Czerwony"}, {id: crypto.randomUUID(), value: "Niebieski"}] },
+                    { id: crypto.randomUUID(), name: "Rozmiar", states: [{id: crypto.randomUUID(), value: "Mały"}, {id: crypto.randomUUID(), value: "Duży"}] }
+                ],
+                dependencies: []
+            };
+            buildDOMFromConfig(initialConfig);
+            updateAll();
+        }
+
+        initialize();
+    });
+    </script>
+</body>
+</html>
