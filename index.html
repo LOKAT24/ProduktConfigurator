@@ -117,7 +117,8 @@
 
     <template id="stateTemplate">
         <div class="state-input-group flex items-center gap-2" data-id="">
-            <input type="text" value="Nowy Stan" class="param-state flex-grow p-2 bg-gray-700 border border-gray-600 text-gray-200 rounded-md shadow-sm">
+            <input type="text" value="Nowy Stan" class="param-state flex-grow p-2 bg-gray-700 border border-gray-600 text-gray-200 rounded-md shadow-sm" placeholder="Nazwa stanu">
+            <input type="text" value="" class="param-state-code w-24 p-2 bg-gray-700 border border-gray-600 text-gray-200 rounded-md shadow-sm" placeholder="Kod (np. B)">
             <button class="remove-state-btn text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded-full p-1.5 remove-btn">
                  <svg class="h-5 w-5 pointer-events-none" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" /></svg>
             </button>
@@ -183,7 +184,8 @@
                 name: block.querySelector('.param-name').value,
                 states: Array.from(block.querySelectorAll('.state-input-group')).map(stateEl => ({
                     id: stateEl.dataset.id,
-                    value: stateEl.querySelector('.param-state').value
+                    value: stateEl.querySelector('.param-state').value,
+                    code: stateEl.querySelector('.param-state-code').value
                 })).filter(s => s.value.trim() !== '')
             }));
             
@@ -265,7 +267,7 @@
             tableHead.appendChild(headerRow);
 
             const allStatesMap = new Map();
-            config.params.forEach(p => p.states.forEach(s => allStatesMap.set(s.id, s.value)));
+            config.params.forEach(p => p.states.forEach(s => allStatesMap.set(s.id, {value: s.value, code: s.code})));
             
             const validCombinations = getValidCombinations(config);
             productCountEl.textContent = validCombinations.length;
@@ -279,37 +281,40 @@
                 lpCell.textContent = index + 1;
                 row.appendChild(lpCell);
 
-                const comboValues = comboIds.map(id => allStatesMap.get(id));
-                comboValues.forEach(val => {
+                const comboStates = comboIds.map(id => allStatesMap.get(id));
+                comboStates.forEach(state => {
                     const cell = document.createElement('td');
                     cell.className = "px-6 py-4 whitespace-nowrap text-sm text-gray-400";
-                    cell.textContent = val;
+                    cell.textContent = state.value;
                     row.appendChild(cell);
                 });
 
+                // Use codes if available, otherwise fall back to values
+                const nameParts = comboStates.map(state => state.code && state.code.trim() !== '' ? state.code : state.value);
                 const nameCell = document.createElement('td');
                 nameCell.className = "px-6 py-4 whitespace-nowrap text-sm font-medium text-white";
-                nameCell.textContent = `${config.baseName}${config.separator}${comboValues.join(config.separator)}`;
+                nameCell.textContent = `${config.baseName}${config.separator}${nameParts.join(config.separator)}`;
                 row.appendChild(nameCell);
                 tableBody.appendChild(row);
             });
         }
 
-        function createParamBlock(id = crypto.randomUUID(), name = 'Nowy Parametr', states = [{id: crypto.randomUUID(), value: 'Stan A'}, {id: crypto.randomUUID(), value: 'Stan B'}]) {
+        function createParamBlock(id = crypto.randomUUID(), name = 'Nowy Parametr', states = [{id: crypto.randomUUID(), value: 'Stan A', code: ''}, {id: crypto.randomUUID(), value: 'Stan B', code: ''}]) {
             const clone = document.getElementById('paramTemplate').content.cloneNode(true);
             const block = clone.querySelector('.param-block');
             block.dataset.id = id;
             block.querySelector('.param-name').value = name;
             const statesContainer = block.querySelector('.states-container');
-            states.forEach(state => statesContainer.appendChild(createStateInput(state.id, state.value)));
+            states.forEach(state => statesContainer.appendChild(createStateInput(state.id, state.value, state.code || '')));
             paramsContainer.appendChild(block);
         }
         
-        function createStateInput(id = crypto.randomUUID(), value = 'Nowy Stan') {
+        function createStateInput(id = crypto.randomUUID(), value = 'Nowy Stan', code = '') {
             const clone = document.getElementById('stateTemplate').content.cloneNode(true);
             const group = clone.querySelector('.state-input-group');
             group.dataset.id = id;
             group.querySelector('.param-state').value = value;
+            group.querySelector('.param-state-code').value = code;
             return clone;
         }
 
@@ -411,7 +416,7 @@
 
             let dependenciesHtml = '';
             const allStatesMap = new Map();
-            config.params.forEach(p => p.states.forEach(s => allStatesMap.set(s.id, {value: s.value, parent: p})));
+            config.params.forEach(p => p.states.forEach(s => allStatesMap.set(s.id, {value: s.value, code: s.code, parent: p})));
             if (config.dependencies.length > 0) {
                 config.dependencies.forEach(dep => {
                     const ifState = allStatesMap.get(dep.ifStateId);
@@ -441,8 +446,10 @@
                     <tbody>`;
                 
                 validCombinations.forEach((comboIds, index) => {
-                    const comboValues = comboIds.map(id => allStatesMap.get(id).value);
-                    const productName = `${config.baseName}${config.separator}${comboValues.join(config.separator)}`;
+                    const comboStates = comboIds.map(id => allStatesMap.get(id));
+                    const comboValues = comboStates.map(state => state.value);
+                    const nameParts = comboStates.map(state => state.code && state.code.trim() !== '' ? state.code : state.value);
+                    const productName = `${config.baseName}${config.separator}${nameParts.join(config.separator)}`;
                     productsTableHtml += `<tr>
                         <td>${index + 1}</td>`;
                     comboValues.forEach(val => {
@@ -528,7 +535,7 @@
                     <script>
                         const config = ${JSON.stringify(config)};
                         const allStatesMap = new Map();
-                        config.params.forEach(p => p.states.forEach(s => allStatesMap.set(s.id, {value: s.value, parent: p})));
+                        config.params.forEach(p => p.states.forEach(s => allStatesMap.set(s.id, {value: s.value, code: s.code, parent: p})));
 
                         function getValidCombinations(config) {
                             let validCombinations = [];
@@ -590,8 +597,10 @@
                             productsData.push(headers);
                             const validCombinations = getValidCombinations(config);
                             validCombinations.forEach((comboIds, index) => {
-                                const comboValues = comboIds.map(id => allStatesMap.get(id).value);
-                                const productName = \`\${config.baseName}\${config.separator}\${comboValues.join(config.separator)}\`;
+                                const comboStates = comboIds.map(id => allStatesMap.get(id));
+                                const comboValues = comboStates.map(state => state.value);
+                                const nameParts = comboStates.map(state => state.code && state.code.trim() !== '' ? state.code : state.value);
+                                const productName = \`\${config.baseName}\${config.separator}\${nameParts.join(config.separator)}\`;
                                 productsData.push([index + 1, ...comboValues, productName]);
                             });
                             const wsProducts = XLSX.utils.aoa_to_sheet(productsData);
@@ -693,8 +702,8 @@
                 baseName: "Produkt",
                 separator: "-",
                 params: [
-                    { id: crypto.randomUUID(), name: "Kolor", states: [{id: crypto.randomUUID(), value: "Czerwony"}, {id: crypto.randomUUID(), value: "Niebieski"}] },
-                    { id: crypto.randomUUID(), name: "Rozmiar", states: [{id: crypto.randomUUID(), value: "Mały"}, {id: crypto.randomUUID(), value: "Duży"}] }
+                    { id: crypto.randomUUID(), name: "Kolor", states: [{id: crypto.randomUUID(), value: "Czerwony", code: "C"}, {id: crypto.randomUUID(), value: "Niebieski", code: "N"}] },
+                    { id: crypto.randomUUID(), name: "Rozmiar", states: [{id: crypto.randomUUID(), value: "Mały", code: "M"}, {id: crypto.randomUUID(), value: "Duży", code: "D"}] }
                 ],
                 dependencies: []
             };
