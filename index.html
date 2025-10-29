@@ -56,15 +56,10 @@
                  </div>
             </div>
             
-            <div class="grid md:grid-cols-3 gap-6 mb-6">
-                <div class="md:col-span-2">
-                    <label for="baseName" class="block text-sm font-medium text-gray-400 mb-1">Nazwa Bazowa Produktu</label>
-                    <input type="text" id="baseName" value="Produkt" class="w-full p-2 bg-gray-700 border border-gray-600 text-gray-200 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
-                </div>
-                <div>
-                    <label for="nameSeparator" class="block text-sm font-medium text-gray-400 mb-1">Separator w nazwie</label>
-                    <input type="text" id="nameSeparator" value="-" class="w-full p-2 bg-gray-700 border border-gray-600 text-gray-200 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
-                </div>
+            <div class="mb-6">
+                <label for="nameTemplate" class="block text-sm font-medium text-gray-400 mb-1">Szablon nazwy (użyj $nazwa_parametru$ dla kodów)</label>
+                <input type="text" id="nameTemplate" value="$name$ - $kolor$.$rozmiar$.001" class="w-full p-2 bg-gray-700 border border-gray-600 text-gray-200 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500" placeholder="np. $name$ - $kolor$.$rozmiar$.001">
+                <p class="mt-1 text-xs text-gray-500">Przykład: "$name$ - $kolor$.$rozmiar$.001" → "Produkt - C.M.001"</p>
             </div>
 
             <div id="paramsContainer" class="space-y-6"></div>
@@ -165,15 +160,42 @@
         const dependenciesContainer = document.getElementById('dependenciesContainer');
         const addParamBtn = document.getElementById('addParamBtn');
         const addDependencyBtn = document.getElementById('addDependencyBtn');
-        const baseNameInput = document.getElementById('baseName');
-        const nameSeparatorInput = document.getElementById('nameSeparator');
+        const nameTemplateInput = document.getElementById('nameTemplate');
         const saveBtn = document.getElementById('saveBtn');
         const loadInput = document.getElementById('loadInput');
         const summaryBtn = document.getElementById('summaryBtn');
 
-        // Helper function to get display name for a state (code or value)
-        function getStateDisplayName(state) {
-            return state.code && state.code.trim() !== '' ? state.code : state.value;
+        // Helper function to generate product name from template
+        function generateProductName(template, paramMap, stateMap) {
+            let result = template;
+            // Replace $name$ with "Produkt" or whatever is in the template literal
+            result = result.replace(/\$name\$/gi, 'Produkt');
+            
+            // Replace parameter placeholders with their codes
+            for (const [paramName, stateId] of paramMap) {
+                const state = stateMap.get(stateId);
+                if (state && state.code && state.code.trim() !== '') {
+                    const placeholder = new RegExp(`\\$${paramName}\\$`, 'gi');
+                    result = result.replace(placeholder, state.code);
+                } else {
+                    // Just remove the placeholder, keep separators
+                    const placeholder = new RegExp(`\\$${paramName}\\$`, 'gi');
+                    result = result.replace(placeholder, '');
+                }
+            }
+            
+            // Remove any remaining unreplaced placeholders
+            result = result.replace(/\$[^$]+\$/g, '');
+            
+            // Clean up: handle cases where we have "- ." or ". -" etc
+            result = result.replace(/\s*-\s*\.\s*/g, '.'); // "- ." becomes "."
+            result = result.replace(/\s*\.\s*-\s*/g, '.'); // ". -" becomes "."
+            result = result.replace(/\.\./g, '.'); // ".." becomes "."
+            
+            // Clean up trailing/leading separators
+            result = result.replace(/^[\s.\-]+|[\s.\-]+$/g, '');
+            
+            return result;
         }
 
         function updateAll() {
@@ -205,8 +227,7 @@
             }).filter(d => d.ifStateId && d.thenStateIds.length > 0);
 
             return {
-                baseName: baseNameInput.value,
-                separator: nameSeparatorInput.value || '-',
+                nameTemplate: nameTemplateInput.value || '$name$ - $kolor$.$rozmiar$.001',
                 params: params.filter(p => p.states.length > 0),
                 dependencies
             };
@@ -294,11 +315,16 @@
                     row.appendChild(cell);
                 });
 
-                // Use codes if available, otherwise fall back to values
-                const nameParts = comboStates.map(getStateDisplayName);
+                // Generate product name using template
+                const paramMap = new Map();
+                config.params.forEach((param, idx) => {
+                    paramMap.set(param.name.toLowerCase(), comboIds[idx]);
+                });
+                
+                const productName = generateProductName(config.nameTemplate, paramMap, allStatesMap);
                 const nameCell = document.createElement('td');
                 nameCell.className = "px-6 py-4 whitespace-nowrap text-sm font-medium text-white";
-                nameCell.textContent = `${config.baseName}${config.separator}${nameParts.join(config.separator)}`;
+                nameCell.textContent = productName;
                 row.appendChild(nameCell);
                 tableBody.appendChild(row);
             });
@@ -453,8 +479,14 @@
                 validCombinations.forEach((comboIds, index) => {
                     const comboStates = comboIds.map(id => allStatesMap.get(id));
                     const comboValues = comboStates.map(state => state.value);
-                    const nameParts = comboStates.map(getStateDisplayName);
-                    const productName = `${config.baseName}${config.separator}${nameParts.join(config.separator)}`;
+                    
+                    // Generate product name using template
+                    const paramMap = new Map();
+                    config.params.forEach((param, idx) => {
+                        paramMap.set(param.name.toLowerCase(), comboIds[idx]);
+                    });
+                    const productName = generateProductName(config.nameTemplate, paramMap, allStatesMap);
+                    
                     productsTableHtml += `<tr>
                         <td>${index + 1}</td>`;
                     comboValues.forEach(val => {
@@ -542,8 +574,28 @@
                         const allStatesMap = new Map();
                         config.params.forEach(p => p.states.forEach(s => allStatesMap.set(s.id, {value: s.value, code: s.code, parent: p})));
 
-                        function getStateDisplayName(state) {
-                            return state.code && state.code.trim() !== '' ? state.code : state.value;
+                        function generateProductName(template, paramMap, stateMap) {
+                            let result = template;
+                            result = result.replace(/\$name\$/gi, 'Produkt');
+                            
+                            for (const [paramName, stateId] of paramMap) {
+                                const state = stateMap.get(stateId);
+                                if (state && state.code && state.code.trim() !== '') {
+                                    const placeholder = new RegExp(\`\\\\\$\${paramName}\\\\\$\`, 'gi');
+                                    result = result.replace(placeholder, state.code);
+                                } else {
+                                    const placeholder = new RegExp(\`\\\\\$\${paramName}\\\\\$\`, 'gi');
+                                    result = result.replace(placeholder, '');
+                                }
+                            }
+                            
+                            result = result.replace(/\$[^$]+\$/g, '');
+                            result = result.replace(/\\s*-\\s*\\.\\s*/g, '.');
+                            result = result.replace(/\\s*\\.\\s*-\\s*/g, '.');
+                            result = result.replace(/\\.\\./g, '.');
+                            result = result.replace(/^[\\s.\\-]+|[\\s.\\-]+$/g, '');
+                            
+                            return result;
                         }
 
                         function getValidCombinations(config) {
@@ -608,8 +660,13 @@
                             validCombinations.forEach((comboIds, index) => {
                                 const comboStates = comboIds.map(id => allStatesMap.get(id));
                                 const comboValues = comboStates.map(state => state.value);
-                                const nameParts = comboStates.map(getStateDisplayName);
-                                const productName = \`\${config.baseName}\${config.separator}\${nameParts.join(config.separator)}\`;
+                                
+                                const paramMap = new Map();
+                                config.params.forEach((param, idx) => {
+                                    paramMap.set(param.name.toLowerCase(), comboIds[idx]);
+                                });
+                                const productName = generateProductName(config.nameTemplate, paramMap, allStatesMap);
+                                
                                 productsData.push([index + 1, ...comboValues, productName]);
                             });
                             const wsProducts = XLSX.utils.aoa_to_sheet(productsData);
@@ -697,8 +754,7 @@
         });
 
         function buildDOMFromConfig(config) {
-            baseNameInput.value = config.baseName || 'Produkt';
-            nameSeparatorInput.value = config.separator || '-';
+            nameTemplateInput.value = config.nameTemplate || '$name$ - $kolor$.$rozmiar$.001';
             paramsContainer.innerHTML = '';
             dependenciesContainer.innerHTML = '';
             
@@ -708,8 +764,7 @@
 
         function initialize() {
             const initialConfig = {
-                baseName: "Produkt",
-                separator: "-",
+                nameTemplate: "$name$ - $kolor$.$rozmiar$.001",
                 params: [
                     { id: crypto.randomUUID(), name: "Kolor", states: [{id: crypto.randomUUID(), value: "Czerwony", code: "C"}, {id: crypto.randomUUID(), value: "Niebieski", code: "N"}] },
                     { id: crypto.randomUUID(), name: "Rozmiar", states: [{id: crypto.randomUUID(), value: "Mały", code: "M"}, {id: crypto.randomUUID(), value: "Duży", code: "D"}] }
