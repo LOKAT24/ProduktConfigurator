@@ -171,6 +171,11 @@
         const loadInput = document.getElementById('loadInput');
         const summaryBtn = document.getElementById('summaryBtn');
 
+        // Helper function to get display name for a state (code or value)
+        function getStateDisplayName(state) {
+            return state.code && state.code.trim() !== '' ? state.code : state.value;
+        }
+
         function updateAll() {
             const config = readConfigFromDOM();
             updateAllDependencyDropdowns(config);
@@ -290,7 +295,7 @@
                 });
 
                 // Use codes if available, otherwise fall back to values
-                const nameParts = comboStates.map(state => state.code && state.code.trim() !== '' ? state.code : state.value);
+                const nameParts = comboStates.map(getStateDisplayName);
                 const nameCell = document.createElement('td');
                 nameCell.className = "px-6 py-4 whitespace-nowrap text-sm font-medium text-white";
                 nameCell.textContent = `${config.baseName}${config.separator}${nameParts.join(config.separator)}`;
@@ -448,7 +453,7 @@
                 validCombinations.forEach((comboIds, index) => {
                     const comboStates = comboIds.map(id => allStatesMap.get(id));
                     const comboValues = comboStates.map(state => state.value);
-                    const nameParts = comboStates.map(state => state.code && state.code.trim() !== '' ? state.code : state.value);
+                    const nameParts = comboStates.map(getStateDisplayName);
                     const productName = `${config.baseName}${config.separator}${nameParts.join(config.separator)}`;
                     productsTableHtml += `<tr>
                         <td>${index + 1}</td>`;
@@ -537,6 +542,10 @@
                         const allStatesMap = new Map();
                         config.params.forEach(p => p.states.forEach(s => allStatesMap.set(s.id, {value: s.value, code: s.code, parent: p})));
 
+                        function getStateDisplayName(state) {
+                            return state.code && state.code.trim() !== '' ? state.code : state.value;
+                        }
+
                         function getValidCombinations(config) {
                             let validCombinations = [];
                             if (config.params.length === 0) return validCombinations;
@@ -599,7 +608,7 @@
                             validCombinations.forEach((comboIds, index) => {
                                 const comboStates = comboIds.map(id => allStatesMap.get(id));
                                 const comboValues = comboStates.map(state => state.value);
-                                const nameParts = comboStates.map(state => state.code && state.code.trim() !== '' ? state.code : state.value);
+                                const nameParts = comboStates.map(getStateDisplayName);
                                 const productName = \`\${config.baseName}\${config.separator}\${nameParts.join(config.separator)}\`;
                                 productsData.push([index + 1, ...comboValues, productName]);
                             });
