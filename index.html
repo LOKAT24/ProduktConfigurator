@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Zaawansowany Konfigurator Produktów z Zależnościami</title>
+    <title>Konfigurator Produktów</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
@@ -33,7 +33,7 @@
 
     <div class="max-w-7xl mx-auto">
         <header class="mb-8">
-            <h1 class="text-3xl font-bold text-gray-100">Zaawansowany Konfigurator Produktów</h1>
+            <h1 class="text-3xl font-bold text-gray-100">Konfigurator Produktów</h1>
             <p class="mt-2 text-gray-400">Dodawaj parametry, stany i definiuj między nimi zależności.</p>
             <!-- ZMIANA: Dodany link do GitHub Issues -->
             <a href="https://github.com/LOKAT24/ProduktConfigurator/issues" target="_blank" rel="noopener noreferrer" class="mt-4 inline-flex items-center gap-2 text-sm text-gray-400 hover:text-indigo-400 transition-colors">
@@ -58,8 +58,8 @@
             
             <div class="mb-6">
                 <label for="nameTemplate" class="block text-sm font-medium text-gray-400 mb-1">Szablon nazwy (użyj $nazwa_parametru$ dla kodów)</label>
-                <input type="text" id="nameTemplate" value="$name$ - $kolor$.$rozmiar$.001" class="w-full p-2 bg-gray-700 border border-gray-600 text-gray-200 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500" placeholder="np. $name$ - $kolor$.$rozmiar$.001">
-                <p class="mt-1 text-xs text-gray-500">Przykład: "$name$ - $kolor$.$rozmiar$.001" → "Produkt - C.M.001"</p>
+                <input type="text" id="nameTemplate" value="$kolor$.$rozmiar$" class="w-full p-2 bg-gray-700 border border-gray-600 text-gray-200 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500" placeholder="np. Produkt - $kolor$.$rozmiar$.001">
+                <!-- <p class="mt-1 text-xs text-gray-500">Przykład:$kolor$.$rozmiar$.001" → "Produkt - C.M.001"</p> -->
             </div>
 
             <div id="paramsContainer" class="space-y-6"></div>
@@ -169,7 +169,7 @@
         function generateProductName(template, paramMap, stateMap) {
             let result = template;
             // Replace $name$ with "Produkt" or whatever is in the template literal
-            result = result.replace(/\$name\$/gi, 'Produkt');
+            // result = result.replace(/\$name\$/gi, 'Produkt');
             
             // Replace parameter placeholders with their codes
             for (const [paramName, stateId] of paramMap) {
@@ -754,7 +754,7 @@
         });
 
         function buildDOMFromConfig(config) {
-            nameTemplateInput.value = config.nameTemplate || '$name$ - $kolor$.$rozmiar$.001';
+            nameTemplateInput.value = config.nameTemplate || 'Produkt - $kolor$.$rozmiar$';
             paramsContainer.innerHTML = '';
             dependenciesContainer.innerHTML = '';
             
@@ -764,7 +764,7 @@
 
         function initialize() {
             const initialConfig = {
-                nameTemplate: "$name$ - $kolor$.$rozmiar$.001",
+                nameTemplate: "Produkt - $kolor$.$rozmiar$",
                 params: [
                     { id: crypto.randomUUID(), name: "Kolor", states: [{id: crypto.randomUUID(), value: "Czerwony", code: "C"}, {id: crypto.randomUUID(), value: "Niebieski", code: "N"}] },
                     { id: crypto.randomUUID(), name: "Rozmiar", states: [{id: crypto.randomUUID(), value: "Mały", code: "M"}, {id: crypto.randomUUID(), value: "Duży", code: "D"}] }
