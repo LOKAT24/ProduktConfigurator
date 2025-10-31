@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Zaawansowany Konfigurator Produktów z Zależnościami</title>
+    <title>Konfigurator Produktów</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
@@ -33,7 +33,7 @@
 
     <div class="max-w-7xl mx-auto">
         <header class="mb-8">
-            <h1 class="text-3xl font-bold text-gray-100">Zaawansowany Konfigurator Produktów</h1>
+            <h1 class="text-3xl font-bold text-gray-100">Konfigurator Produktów</h1>
             <p class="mt-2 text-gray-400">Dodawaj parametry, stany i definiuj między nimi zależności.</p>
             <!-- ZMIANA: Dodany link do GitHub Issues -->
             <a href="https://github.com/LOKAT24/ProduktConfigurator/issues" target="_blank" rel="noopener noreferrer" class="mt-4 inline-flex items-center gap-2 text-sm text-gray-400 hover:text-indigo-400 transition-colors">
@@ -56,15 +56,10 @@
                  </div>
             </div>
             
-            <div class="grid md:grid-cols-3 gap-6 mb-6">
-                <div class="md:col-span-2">
-                    <label for="baseName" class="block text-sm font-medium text-gray-400 mb-1">Nazwa Bazowa Produktu</label>
-                    <input type="text" id="baseName" value="Produkt" class="w-full p-2 bg-gray-700 border border-gray-600 text-gray-200 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
-                </div>
-                <div>
-                    <label for="nameSeparator" class="block text-sm font-medium text-gray-400 mb-1">Separator w nazwie</label>
-                    <input type="text" id="nameSeparator" value="-" class="w-full p-2 bg-gray-700 border border-gray-600 text-gray-200 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
-                </div>
+            <div class="mb-6">
+                <label for="nameTemplate" class="block text-sm font-medium text-gray-400 mb-1">Szablon nazwy (użyj $nazwa_parametru$ dla kodów)</label>
+                <input type="text" id="nameTemplate" value="$kolor$.$rozmiar$" class="w-full p-2 bg-gray-700 border border-gray-600 text-gray-200 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500" placeholder="np. Produkt - $kolor$.$rozmiar$.001">
+                <!-- <p class="mt-1 text-xs text-gray-500">Przykład:$kolor$.$rozmiar$.001" → "Produkt - C.M.001"</p> -->
             </div>
 
             <div id="paramsContainer" class="space-y-6"></div>
@@ -117,7 +112,8 @@
 
     <template id="stateTemplate">
         <div class="state-input-group flex items-center gap-2" data-id="">
-            <input type="text" value="Nowy Stan" class="param-state flex-grow p-2 bg-gray-700 border border-gray-600 text-gray-200 rounded-md shadow-sm">
+            <input type="text" value="Nowy Stan" class="param-state flex-grow p-2 bg-gray-700 border border-gray-600 text-gray-200 rounded-md shadow-sm" placeholder="Nazwa stanu">
+            <input type="text" value="" class="param-state-code w-24 p-2 bg-gray-700 border border-gray-600 text-gray-200 rounded-md shadow-sm" placeholder="Kod (np. B)">
             <button class="remove-state-btn text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded-full p-1.5 remove-btn">
                  <svg class="h-5 w-5 pointer-events-none" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" /></svg>
             </button>
@@ -164,11 +160,43 @@
         const dependenciesContainer = document.getElementById('dependenciesContainer');
         const addParamBtn = document.getElementById('addParamBtn');
         const addDependencyBtn = document.getElementById('addDependencyBtn');
-        const baseNameInput = document.getElementById('baseName');
-        const nameSeparatorInput = document.getElementById('nameSeparator');
+        const nameTemplateInput = document.getElementById('nameTemplate');
         const saveBtn = document.getElementById('saveBtn');
         const loadInput = document.getElementById('loadInput');
         const summaryBtn = document.getElementById('summaryBtn');
+
+        // Helper function to generate product name from template
+        function generateProductName(template, paramMap, stateMap) {
+            let result = template;
+            // Replace $name$ with "Produkt" or whatever is in the template literal
+            // result = result.replace(/\$name\$/gi, 'Produkt');
+            
+            // Replace parameter placeholders with their codes
+            for (const [paramName, stateId] of paramMap) {
+                const state = stateMap.get(stateId);
+                if (state && state.code && state.code.trim() !== '') {
+                    const placeholder = new RegExp(`\\$${paramName}\\$`, 'gi');
+                    result = result.replace(placeholder, state.code);
+                } else {
+                    // Just remove the placeholder, keep separators
+                    const placeholder = new RegExp(`\\$${paramName}\\$`, 'gi');
+                    result = result.replace(placeholder, '');
+                }
+            }
+            
+            // Remove any remaining unreplaced placeholders
+            result = result.replace(/\$[^$]+\$/g, '');
+            
+            // Clean up: handle cases where we have "- ." or ". -" etc
+            result = result.replace(/\s*-\s*\.\s*/g, '.'); // "- ." becomes "."
+            result = result.replace(/\s*\.\s*-\s*/g, '.'); // ". -" becomes "."
+            result = result.replace(/\.\./g, '.'); // ".." becomes "."
+            
+            // Clean up trailing/leading separators
+            result = result.replace(/^[\s.\-]+|[\s.\-]+$/g, '');
+            
+            return result;
+        }
 
         function updateAll() {
             const config = readConfigFromDOM();
@@ -183,7 +211,8 @@
                 name: block.querySelector('.param-name').value,
                 states: Array.from(block.querySelectorAll('.state-input-group')).map(stateEl => ({
                     id: stateEl.dataset.id,
-                    value: stateEl.querySelector('.param-state').value
+                    value: stateEl.querySelector('.param-state').value,
+                    code: stateEl.querySelector('.param-state-code').value
                 })).filter(s => s.value.trim() !== '')
             }));
             
@@ -198,8 +227,7 @@
             }).filter(d => d.ifStateId && d.thenStateIds.length > 0);
 
             return {
-                baseName: baseNameInput.value,
-                separator: nameSeparatorInput.value || '-',
+                nameTemplate: nameTemplateInput.value || '$name$ - $kolor$.$rozmiar$.001',
                 params: params.filter(p => p.states.length > 0),
                 dependencies
             };
@@ -265,7 +293,7 @@
             tableHead.appendChild(headerRow);
 
             const allStatesMap = new Map();
-            config.params.forEach(p => p.states.forEach(s => allStatesMap.set(s.id, s.value)));
+            config.params.forEach(p => p.states.forEach(s => allStatesMap.set(s.id, {value: s.value, code: s.code})));
             
             const validCombinations = getValidCombinations(config);
             productCountEl.textContent = validCombinations.length;
@@ -279,37 +307,45 @@
                 lpCell.textContent = index + 1;
                 row.appendChild(lpCell);
 
-                const comboValues = comboIds.map(id => allStatesMap.get(id));
-                comboValues.forEach(val => {
+                const comboStates = comboIds.map(id => allStatesMap.get(id));
+                comboStates.forEach(state => {
                     const cell = document.createElement('td');
                     cell.className = "px-6 py-4 whitespace-nowrap text-sm text-gray-400";
-                    cell.textContent = val;
+                    cell.textContent = state.value;
                     row.appendChild(cell);
                 });
 
+                // Generate product name using template
+                const paramMap = new Map();
+                config.params.forEach((param, idx) => {
+                    paramMap.set(param.name.toLowerCase(), comboIds[idx]);
+                });
+                
+                const productName = generateProductName(config.nameTemplate, paramMap, allStatesMap);
                 const nameCell = document.createElement('td');
                 nameCell.className = "px-6 py-4 whitespace-nowrap text-sm font-medium text-white";
-                nameCell.textContent = `${config.baseName}${config.separator}${comboValues.join(config.separator)}`;
+                nameCell.textContent = productName;
                 row.appendChild(nameCell);
                 tableBody.appendChild(row);
             });
         }
 
-        function createParamBlock(id = crypto.randomUUID(), name = 'Nowy Parametr', states = [{id: crypto.randomUUID(), value: 'Stan A'}, {id: crypto.randomUUID(), value: 'Stan B'}]) {
+        function createParamBlock(id = crypto.randomUUID(), name = 'Nowy Parametr', states = [{id: crypto.randomUUID(), value: 'Stan A', code: ''}, {id: crypto.randomUUID(), value: 'Stan B', code: ''}]) {
             const clone = document.getElementById('paramTemplate').content.cloneNode(true);
             const block = clone.querySelector('.param-block');
             block.dataset.id = id;
             block.querySelector('.param-name').value = name;
             const statesContainer = block.querySelector('.states-container');
-            states.forEach(state => statesContainer.appendChild(createStateInput(state.id, state.value)));
+            states.forEach(state => statesContainer.appendChild(createStateInput(state.id, state.value, state.code || '')));
             paramsContainer.appendChild(block);
         }
         
-        function createStateInput(id = crypto.randomUUID(), value = 'Nowy Stan') {
+        function createStateInput(id = crypto.randomUUID(), value = 'Nowy Stan', code = '') {
             const clone = document.getElementById('stateTemplate').content.cloneNode(true);
             const group = clone.querySelector('.state-input-group');
             group.dataset.id = id;
             group.querySelector('.param-state').value = value;
+            group.querySelector('.param-state-code').value = code;
             return clone;
         }
 
@@ -411,7 +447,7 @@
 
             let dependenciesHtml = '';
             const allStatesMap = new Map();
-            config.params.forEach(p => p.states.forEach(s => allStatesMap.set(s.id, {value: s.value, parent: p})));
+            config.params.forEach(p => p.states.forEach(s => allStatesMap.set(s.id, {value: s.value, code: s.code, parent: p})));
             if (config.dependencies.length > 0) {
                 config.dependencies.forEach(dep => {
                     const ifState = allStatesMap.get(dep.ifStateId);
@@ -441,8 +477,16 @@
                     <tbody>`;
                 
                 validCombinations.forEach((comboIds, index) => {
-                    const comboValues = comboIds.map(id => allStatesMap.get(id).value);
-                    const productName = `${config.baseName}${config.separator}${comboValues.join(config.separator)}`;
+                    const comboStates = comboIds.map(id => allStatesMap.get(id));
+                    const comboValues = comboStates.map(state => state.value);
+                    
+                    // Generate product name using template
+                    const paramMap = new Map();
+                    config.params.forEach((param, idx) => {
+                        paramMap.set(param.name.toLowerCase(), comboIds[idx]);
+                    });
+                    const productName = generateProductName(config.nameTemplate, paramMap, allStatesMap);
+                    
                     productsTableHtml += `<tr>
                         <td>${index + 1}</td>`;
                     comboValues.forEach(val => {
@@ -528,7 +572,31 @@
                     <script>
                         const config = ${JSON.stringify(config)};
                         const allStatesMap = new Map();
-                        config.params.forEach(p => p.states.forEach(s => allStatesMap.set(s.id, {value: s.value, parent: p})));
+                        config.params.forEach(p => p.states.forEach(s => allStatesMap.set(s.id, {value: s.value, code: s.code, parent: p})));
+
+                        function generateProductName(template, paramMap, stateMap) {
+                            let result = template;
+                            result = result.replace(/\$name\$/gi, 'Produkt');
+                            
+                            for (const [paramName, stateId] of paramMap) {
+                                const state = stateMap.get(stateId);
+                                if (state && state.code && state.code.trim() !== '') {
+                                    const placeholder = new RegExp(\`\\\\\$\${paramName}\\\\\$\`, 'gi');
+                                    result = result.replace(placeholder, state.code);
+                                } else {
+                                    const placeholder = new RegExp(\`\\\\\$\${paramName}\\\\\$\`, 'gi');
+                                    result = result.replace(placeholder, '');
+                                }
+                            }
+                            
+                            result = result.replace(/\$[^$]+\$/g, '');
+                            result = result.replace(/\\s*-\\s*\\.\\s*/g, '.');
+                            result = result.replace(/\\s*\\.\\s*-\\s*/g, '.');
+                            result = result.replace(/\\.\\./g, '.');
+                            result = result.replace(/^[\\s.\\-]+|[\\s.\\-]+$/g, '');
+                            
+                            return result;
+                        }
 
                         function getValidCombinations(config) {
                             let validCombinations = [];
@@ -590,8 +658,15 @@
                             productsData.push(headers);
                             const validCombinations = getValidCombinations(config);
                             validCombinations.forEach((comboIds, index) => {
-                                const comboValues = comboIds.map(id => allStatesMap.get(id).value);
-                                const productName = \`\${config.baseName}\${config.separator}\${comboValues.join(config.separator)}\`;
+                                const comboStates = comboIds.map(id => allStatesMap.get(id));
+                                const comboValues = comboStates.map(state => state.value);
+                                
+                                const paramMap = new Map();
+                                config.params.forEach((param, idx) => {
+                                    paramMap.set(param.name.toLowerCase(), comboIds[idx]);
+                                });
+                                const productName = generateProductName(config.nameTemplate, paramMap, allStatesMap);
+                                
                                 productsData.push([index + 1, ...comboValues, productName]);
                             });
                             const wsProducts = XLSX.utils.aoa_to_sheet(productsData);
@@ -679,8 +754,7 @@
         });
 
         function buildDOMFromConfig(config) {
-            baseNameInput.value = config.baseName || 'Produkt';
-            nameSeparatorInput.value = config.separator || '-';
+            nameTemplateInput.value = config.nameTemplate || 'Produkt - $kolor$.$rozmiar$';
             paramsContainer.innerHTML = '';
             dependenciesContainer.innerHTML = '';
             
@@ -690,11 +764,10 @@
 
         function initialize() {
             const initialConfig = {
-                baseName: "Produkt",
-                separator: "-",
+                nameTemplate: "Produkt - $kolor$.$rozmiar$",
                 params: [
-                    { id: crypto.randomUUID(), name: "Kolor", states: [{id: crypto.randomUUID(), value: "Czerwony"}, {id: crypto.randomUUID(), value: "Niebieski"}] },
-                    { id: crypto.randomUUID(), name: "Rozmiar", states: [{id: crypto.randomUUID(), value: "Mały"}, {id: crypto.randomUUID(), value: "Duży"}] }
+                    { id: crypto.randomUUID(), name: "Kolor", states: [{id: crypto.randomUUID(), value: "Czerwony", code: "C"}, {id: crypto.randomUUID(), value: "Niebieski", code: "N"}] },
+                    { id: crypto.randomUUID(), name: "Rozmiar", states: [{id: crypto.randomUUID(), value: "Mały", code: "M"}, {id: crypto.randomUUID(), value: "Duży", code: "D"}] }
                 ],
                 dependencies: []
             };
